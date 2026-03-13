@@ -123,3 +123,7 @@ output/
 sessions/
 browser_state.json
 instagram_state.json
+linkedin_state.json
+maps_grid_state.json
+supplier_state.json
+maps_state.json

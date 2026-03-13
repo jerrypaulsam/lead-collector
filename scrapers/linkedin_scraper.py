@@ -7,10 +7,26 @@ from bs4 import BeautifulSoup
 
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 
-STATE_FILE = "browser_state.json"
+STATE_FILE = "linkedin_state.json"
+MASTER_SEEN_FILE = "output/master_seen_urls.txt"
 
-PHONE_REGEX = r"(?:\+?91[\-\s]?)?[6789]\d{2}[\-\s]?\d{3}[\-\s]?\d{4}"
+PHONE_REGEX = r"(?:\+91[\-\s]?)?(?:0?[6-9]\d{9}|0?\(?\d{2,4}\)?[\-\s]?\d{6,8})"
 EMAIL_REGEX = r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
+
+os.makedirs("output", exist_ok=True)
+
+def load_seen_urls():
+    """Loads previously scraped URLs from previous runs."""
+    if os.path.exists(MASTER_SEEN_FILE):
+        with open(MASTER_SEEN_FILE, "r", encoding="utf-8") as f:
+            return set(line.strip() for line in f if line.strip())
+    return set()
+
+def save_seen_url(url):
+    """Saves a URL permanently so we never scrape it again."""
+    with open(MASTER_SEEN_FILE, "a", encoding="utf-8") as f:
+        f.write(f"{url}\n")
+
 
 def build_queries(query):
     return [
@@ -68,16 +84,17 @@ async def safe_google_search(page, url):
     try:
         await page.wait_for_selector("h3", timeout=5000)
     except PlaywrightTimeoutError:
-        if "sorry" in page.url.lower():
-            print("\n GOOGLE CAPTCHA DETECTED! Please solve it in the browser window...")
+        if "sorry" in page.url.lower() or "captcha" in page.url.lower():
+            print("\n[🚨] GOOGLE CAPTCHA DETECTED! Please solve it in the browser window...")
             await page.wait_for_selector("h3", timeout=300000) 
-            print(" CAPTCHA solved! Resuming scrape...")
+            print("[✅] CAPTCHA solved! Resuming scrape...")
         else:
             raise PlaywrightTimeoutError("Timeout waiting for h3, and no CAPTCHA detected.")
 
 async def find_official_website(website_page, company_name):
     query = f"{company_name} official website -linkedin -indiamart -justdial"
-    url = "https://www.google.com/search?q=" + urllib.parse.quote_plus(query)
+    # Added &nfpr=1 to prevent Google auto-correct here as well
+    url = "https://www.google.com/search?q=" + urllib.parse.quote_plus(query) + "&nfpr=1"
 
     try:
         await safe_google_search(website_page, url)
@@ -98,9 +115,15 @@ async def find_official_website(website_page, company_name):
     except:
         return ""
 
-async def run(query, limit):
+
+# Added start_page parameter!
+async def run(query, limit, start_page=0):
     results = []
-    seen = set()
+    
+    # Load historical cache
+    seen = load_seen_urls()
+    print(f"[LinkedIn] Loaded {len(seen)} previously scraped profiles from master cache.")
+    
     queries = build_queries(query)
 
     async with async_playwright() as p:
@@ -126,13 +149,14 @@ async def run(query, limit):
         website_page = await context.new_page() 
 
         for q in queries:
-            page_num = 0
+            page_num = start_page # Apply pagination!
 
             while len(results) < limit:
                 url = (
                     "https://www.google.com/search?q="
                     + urllib.parse.quote_plus(q)
                     + f"&start={page_num*10}"
+                    + "&nfpr=1" # Anti-autocorrect added
                 )
 
                 print(f"\n[LinkedIn] Opening: {url}")
@@ -160,6 +184,7 @@ async def run(query, limit):
                     print(f"LinkedIn results detected on page: {len(extracted_links)}")
 
                     if not extracted_links:
+                        print("[LinkedIn] Reached the end of Google results for this query.")
                         break
 
                     for item in extracted_links:
@@ -171,7 +196,9 @@ async def run(query, limit):
                         if "linkedin.com/company" not in linkedin_url or linkedin_url in seen:
                             continue
 
+                        # Save to both our local run set and the permanent cache file!
                         seen.add(linkedin_url)
+                        save_seen_url(linkedin_url)
 
                         title = item['title']
                         company = title.replace(" | LinkedIn", "").replace("- LinkedIn", "").strip()
@@ -228,7 +255,7 @@ async def run(query, limit):
     os.makedirs("output", exist_ok=True)
     df.to_excel("output/linkedin_leads.xlsx", index=False)
 
-    print(f"LinkedIn Scraping finished. Saved {len(results)} leads.")
+    print(f"LinkedIn Scraping finished. Saved {len(results)} new leads.")
 
-def scrape_linkedin(query, limit):
-    asyncio.run(run(query, limit))
+def scrape_linkedin(query, limit, start_page=0):
+    asyncio.run(run(query, limit, start_page))
