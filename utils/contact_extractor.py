@@ -4,9 +4,7 @@ from bs4 import BeautifulSoup
 
 from utils.email_finder import find_email
 
-# STRICT regex for Indian Mobile Numbers (e.g., +91 9876543210, 98765-43210)
-# Ensures it starts with 6, 7, 8, or 9
-PHONE_REGEX = r"(?:\+?91[\-\s]?)?[6789]\d{2}[\-\s]?\d{3}[\-\s]?\d{4}"
+PHONE_REGEX = r"(?:\+91[\-\s]?)?(?:0?[6-9]\d{9}|0?\(?\d{2,4}\)?[\-\s]?\d{6,8})"
 
 # Standard email regex fallback
 EMAIL_REGEX = r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
