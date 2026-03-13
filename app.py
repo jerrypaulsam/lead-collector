@@ -17,6 +17,8 @@ def main():
     parser.add_argument("--query", required=True)
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--source", default="all")
+    # NEW: Expose the start_page argument!
+    parser.add_argument("--start_page", type=int, default=0, help="Pages to skip for Google-based scrapers")
 
     args = parser.parse_args()
     os.makedirs("output", exist_ok=True)
@@ -27,9 +29,9 @@ def main():
     # since Playwright will open 4 separate browser windows simultaneously!
     with ThreadPoolExecutor(max_workers=4) as executor:
 
-        # NOTE: Running 'maps' and 'maps_grid' simultaneously on 'all' will duplicate effort 
-        # and doubly hit Google. You might want to choose one over the other in your logic.
-        if args.source in ["maps", "all"]:
+        # UPDATED: Only run the basic maps scraper if specifically requested. 
+        # Excluded from "all" to prevent duplicate work with maps_grid.
+        if args.source == "maps":
             tasks.append(
                 executor.submit(
                     scrape_maps,
@@ -39,6 +41,7 @@ def main():
                 )
             )
 
+        # Maps Grid is the default map scraper for "all"
         if args.source in ["maps_grid", "all"]:
             tasks.append(
                 executor.submit(
@@ -53,8 +56,9 @@ def main():
             tasks.append(
                 executor.submit(
                     scrape_supplier_search,
-                    normalized["maps_query"],
-                    args.limit
+                    normalized["maps_query"], # You could also use normalized["indiamart_query"] here
+                    args.limit,
+                    args.start_page           # Passed start_page!
                 )
             )
 
@@ -63,7 +67,8 @@ def main():
                 executor.submit(
                     scrape_linkedin,
                     normalized["linkedin_query"],
-                    args.limit
+                    args.limit,
+                    args.start_page           # Passed start_page!
                 )
             )
 
@@ -72,21 +77,22 @@ def main():
                 executor.submit(
                     scrape_instagram,
                     normalized["instagram_query"], 
-                    args.limit
+                    args.limit,
+                    args.start_page           # Passed start_page!
                 )
             )
 
-        print("All scrapers launched. Waiting for completion...")
+        print("[MASTER] All scrapers launched. Waiting for completion...")
         for task in tasks:
             try:
                 task.result() 
             except Exception as e:
-                print(f"A scraper thread crashed: {e}")
+                print(f"[!] A scraper thread crashed: {e}")
         
-    print("All scraping threads closed. Merging outputs...")
+    print("[MASTER] All scraping threads closed. Merging outputs...")
     merge_outputs()
 
-    print("Lead collection finished successfully.")
+    print("[MASTER] Lead collection finished successfully.")
 
 if __name__ == "__main__":
     main()

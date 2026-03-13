@@ -40,6 +40,7 @@ def run_scraper():
     query = query_entry.get().strip()
     limit = limit_entry.get().strip()
     source = source_dropdown.get()
+    start_page = skip_entry.get().strip() # NEW: Grab the skip pages value
 
     if not query:
         log("Enter a query")
@@ -49,12 +50,18 @@ def run_scraper():
         log("Lead count must be a number")
         return
 
+    # Default to 0 if the user leaves it blank or types something weird
+    if not start_page.isdigit():
+        start_page = "0"
+
     start_button.config(state="disabled")
 
     log("Starting scraper...")
     log(f"Query: {query}")
     log(f"Source: {source}")
     log(f"Limit: {limit}")
+    if int(start_page) > 0:
+        log(f"Skipping first {start_page} pages...")
 
     progress.start()
 
@@ -65,12 +72,10 @@ def run_scraper():
                     sys.executable,
                     "-u",         
                     "app.py", 
-                    "--query",
-                    query,
-                    "--limit",
-                    limit,
-                    "--source",
-                    source
+                    "--query", query,
+                    "--limit", limit,
+                    "--source", source,
+                    "--start_page", start_page # NEW: Pass the start_page to your orchestrator!
                 ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -108,7 +113,7 @@ def run_scraper():
 
 root = tk.Tk()
 root.title("SHDZ Lead Finder Tool")
-root.geometry("920x720")
+root.geometry("920x760") # Slightly taller to fit the new input
 
 title = ttk.Label(root, text="SHDZ Lead Finder Tool", font=("Arial", 18, "bold"))
 title.pack(pady=15)
@@ -137,7 +142,7 @@ ttk.Label(frame, text="Search Query:").grid(row=0, column=0, sticky="w", pady=5)
 
 query_entry = ttk.Entry(frame, width=50)
 query_entry.grid(row=0, column=1, pady=5, padx=10)
-query_entry.insert(0, "clothing manufacturer Tirupur")
+query_entry.insert(0, "clothing manufacturer Bangalore")
 
 
 ttk.Label(frame, text="Lead Limit:").grid(row=1, column=0, sticky="w", pady=5)
@@ -164,6 +169,14 @@ source_dropdown = ttk.Combobox(
 )
 source_dropdown.grid(row=2, column=1, sticky="w", pady=5, padx=10)
 source_dropdown.set("all")
+
+
+# NEW: Skip Pages Input
+ttk.Label(frame, text="Skip Pages:").grid(row=3, column=0, sticky="w", pady=5)
+
+skip_entry = ttk.Entry(frame, width=15)
+skip_entry.grid(row=3, column=1, sticky="w", pady=5, padx=10)
+skip_entry.insert(0, "0")
 
 
 # ---------- run button ----------
