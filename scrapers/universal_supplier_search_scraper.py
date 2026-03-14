@@ -15,7 +15,7 @@ HEADERS = {
 STATE_FILE = "supplier_state.json"
 MASTER_SEEN_FILE = "output/master_seen_urls.txt"
 
-PHONE_REGEX = r"(?:\+?91[\-\s]?)?[6789]\d{2}[\-\s]?\d{3}[\-\s]?\d{4}"
+PHONE_REGEX = r"(?:\+91[\-\s]?)?(?:0?[6-9]\d{9}|0?\(?\d{2,4}\)?[\-\s]?\d{6,8})"
 EMAIL_REGEX = r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
 
 os.makedirs("output", exist_ok=True)
@@ -82,18 +82,21 @@ def scrape_page_for_contacts(url):
 	return phone, email, website, whatsapp
 
 def safe_google_search(page, url):
-	"""Navigates to Google and explicitly waits/checks for CAPTCHAs."""
-	page.goto(url, timeout=30000)
-	
-	try:
-		page.wait_for_selector("h3", timeout=5000)
-	except PlaywrightTimeoutError:
-		if "sorry" in page.url.lower() or "captcha" in page.url.lower():
-			print("\n[🚨] GOOGLE CAPTCHA DETECTED! Please solve it in the browser window...")
-			page.wait_for_selector("h3", timeout=300000) 
-			print("[✅] CAPTCHA solved! Resuming scrape...")
-		else:
-			raise PlaywrightTimeoutError("Timeout waiting for h3, and no CAPTCHA detected.")
+    """Navigates to Google safely, handling CAPTCHAs automatically."""
+    page.goto(url, timeout=30000)
+    
+    try:
+        page.wait_for_selector("h3", timeout=5000)
+    except PlaywrightTimeoutError:
+        if "sorry" in page.url.lower() or "captcha" in page.url.lower():
+            print("\nGOOGLE CAPTCHA DETECTED ON INSTAGRAM SEARCH!")
+            print("Cooling down for 10 minutes to reset Google's flags...")
+            time.sleep(600)  
+            print("\n Cool-down finished. Retrying...")
+            page.goto(url, timeout=30000)
+            page.wait_for_selector("h3", timeout=15000)
+        else:
+            raise PlaywrightTimeoutError("Timeout waiting for h3, and no CAPTCHA detected.")
 
 def find_official_website(website_page, company_name):
 	query = f"{company_name} official website -indiamart -tradeindia -justdial"
@@ -125,7 +128,7 @@ def scrape_supplier_search(query, limit, start_page=0):
 	
 	# Load historical cache
 	seen = load_seen_urls()
-	print(f"[SUPPLIER SEARCH] Loaded {len(seen)} previously scraped profiles from master cache.")
+	print(f"SUPPLIER SEARCH Loaded {len(seen)} previously scraped profiles from master cache.")
 	
 	page = start_page
 
@@ -143,7 +146,7 @@ def scrape_supplier_search(query, limit, start_page=0):
 		}
 
 		if os.path.exists(STATE_FILE):
-			print(f"[!] Loading saved browser session from {STATE_FILE}...")
+			print(f"Loading saved browser session from {STATE_FILE}...")
 			context_args["storage_state"] = STATE_FILE
 		
 		context = browser.new_context(**context_args)
@@ -162,7 +165,7 @@ def scrape_supplier_search(query, limit, start_page=0):
 				+ "&nfpr=1"
 			)
 
-			print(f"\n[SUPPLIER SEARCH] Fetching Google Search Page {page + 1}")
+			print(f"\nSUPPLIER SEARCH Fetching Google Search Page {page + 1}")
 
 			try:
 				safe_google_search(search_page, url)
@@ -184,10 +187,10 @@ def scrape_supplier_search(query, limit, start_page=0):
 					}
 				""")
 
-				print(f"[SUPPLIER SEARCH] Results detected on page: {len(extracted_links)}")
+				print(f"SUPPLIER SEARCH Results detected on page: {len(extracted_links)}")
 
 				if not extracted_links:
-					print("[SUPPLIER SEARCH] Reached the end of Google results.")
+					print("SUPPLIER SEARCH Reached the end of Google results.")
 					break
 
 				for item in extracted_links:
@@ -240,19 +243,19 @@ def scrape_supplier_search(query, limit, start_page=0):
 						"Source": source
 					})
 
-					print(f"[FOUND] {company_name} | Phone: {final_phone} | Email: {final_email}")
+					print(f"FOUND {company_name} | Phone: {final_phone} | Email: {final_email}")
 					time.sleep(1)
 
 			except PlaywrightTimeoutError:
-				print("[SUPPLIER SEARCH] Skipping page due to timeout/no results.")
+				print("SUPPLIER SEARCH Skipping page due to timeout/no results.")
 				break
 			except Exception as e:
-				print(f"[SUPPLIER SEARCH] error: {e}")
+				print(f"SUPPLIER SEARCH error: {e}")
 				break
 
 			page += 1
 
-		print(f"\n[!] Saving browser session to {STATE_FILE}...")
+		print(f"\nSaving browser session to {STATE_FILE}...")
 		context.storage_state(path=STATE_FILE)
 		browser.close()
 
@@ -264,4 +267,4 @@ def scrape_supplier_search(query, limit, start_page=0):
 		
 	os.makedirs("output", exist_ok=True)
 	df.to_excel("output/supplier_search_leads.xlsx", index=False)
-	print(f"[SUPPLIER SEARCH] Scraping finished. Saved {len(results)} new leads.")
+	print(f"SUPPLIER SEARCH Scraping finished. Saved {len(results)} new leads.")

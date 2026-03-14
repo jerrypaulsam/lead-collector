@@ -6,13 +6,12 @@ import os
 
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 
-# Assuming these are your local modules
 from utils.geo_utils import generate_grid
 from utils.contact_extractor import extract_contacts
 from utils.classifier import classify_business
 
 # --- SAFE CONFIGURATION ---
-GRID_WORKERS = 1           # Down to 1 to mimic a single human browsing safely
+GRID_WORKERS = 1           
 PER_CELL_LIMIT = 8         # How many NEW leads to grab per grid coordinate
 SCROLL_LOOPS = 6           # How many times to scroll the Maps sidebar
 
@@ -42,18 +41,18 @@ async def safe_maps_load(page, url, max_retries=2):
 		
 		# Check if Google redirected us to their "Sorry" CAPTCHA page
 		if "sorry" in page.url.lower() or "captcha" in page.url.lower():
-			print(f"\n[🚨] CAPTCHA DETECTED! Google is suspicious of our speed.")
-			print(f"[⏳] Cooling down for 10 minutes... (Attempt {attempt + 1}/{max_retries})")
+			print(f"\nCAPTCHA DETECTED! Google is suspicious of our speed.")
+			print(f"Cooling down for 10 minutes... (Attempt {attempt + 1}/{max_retries})")
 			
 			# Sleep for exactly 10 minutes (600 seconds)
 			await asyncio.sleep(600)  
 			
-			print("\n[✅] Cool-down finished. Retrying the search...")
+			print("\nCool-down finished. Retrying the search...")
 			continue # Loop restarts and tries to load the URL again
 			
 		return True # Loaded safely!
 		
-	print("[!] Failed to bypass CAPTCHA after cool-downs. Moving to next cell.")
+	print("Failed to bypass CAPTCHA after cool-downs. Moving to next cell.")
 	return False
 
 
@@ -62,7 +61,7 @@ async def collect_links(page, query, lat, lon):
 	safe_query = urllib.parse.quote_plus(query)
 	url = f"https://www.google.com/maps/search/{safe_query}/@{lat},{lon},14z"
 
-	print(f"\n[GRID] Scanning Cell: {lat},{lon}")
+	print(f"\nGRID Scanning Cell: {lat},{lon}")
 
 	try:
 		loaded_safely = await safe_maps_load(page, url)
@@ -81,7 +80,7 @@ async def collect_links(page, query, lat, lon):
 				""")
 				await page.wait_for_timeout(random.randint(1000, 2000))
 		except PlaywrightTimeoutError:
-			print(f"    [!] No scrollable feed found for {lat},{lon}. Capturing visible pins.")
+			print(f"    No scrollable feed found for {lat},{lon}. Capturing visible pins.")
 
 		anchors = await page.locator('a[href*="/maps/place"]').all()
 
@@ -94,7 +93,7 @@ async def collect_links(page, query, lat, lon):
 				continue
 
 	except Exception as e:
-		print(f"    [!] Error collecting links at {lat},{lon}: {e}")
+		print(f"    Error collecting links at {lat},{lon}: {e}")
 
 	return links
 
@@ -131,7 +130,7 @@ async def parse_business(context, link):
 			try:
 				email, phone, whatsapp = await asyncio.to_thread(extract_contacts, name, website)
 			except Exception as e:
-				print(f"    [!] Contact extraction failed for {name}: {e}")
+				print(f"    Contact extraction failed for {name}: {e}")
 
 		print(f"[FOUND] {name}")
 
@@ -208,7 +207,7 @@ async def run(query, limit, city):
 	
 	# Load historical cache
 	seen = load_seen_urls()
-	print(f"[GRID MAPS] Loaded {len(seen)} previously scraped businesses from master cache.")
+	print(f"GRID MAPS Loaded {len(seen)} previously scraped businesses from master cache.")
 
 	for cell in grid:
 		await queue.put(cell)
@@ -227,7 +226,7 @@ async def run(query, limit, city):
 		}
 
 		if os.path.exists(STATE_FILE):
-			print(f"[!] Loading saved browser session from {STATE_FILE}...")
+			print(f"Loading saved browser session from {STATE_FILE}...")
 			context_args["storage_state"] = STATE_FILE
 
 		context = await browser.new_context(**context_args)
@@ -259,7 +258,7 @@ async def run(query, limit, city):
 	os.makedirs("output", exist_ok=True)
 	df.to_excel("output/maps_grid_leads.xlsx", index=False)
 
-	print(f"[GRID MAPS] Scraping finished. Saved {len(df)} new leads.")
+	print(f"GRID MAPS Scraping finished. Saved {len(df)} new leads.")
 
 
 def scrape_maps_grid(query, limit, city):

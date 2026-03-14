@@ -11,7 +11,6 @@ from utils.contact_extractor import extract_contacts
 
 SCROLL_LIMIT = 8
 
-# 🚨 RENAMED: Prevents thread collisions with other scrapers!
 STATE_FILE = "maps_state.json"
 MASTER_SEEN_FILE = "output/master_seen_urls.txt"
 
@@ -37,14 +36,14 @@ async def safe_maps_load(page, url, max_retries=2):
 		await page.wait_for_timeout(3000)
 		
 		if "sorry" in page.url.lower() or "captcha" in page.url.lower():
-			print(f"\n[🚨] CAPTCHA DETECTED! Cooling down for 10 minutes... (Attempt {attempt + 1}/{max_retries})")
+			print(f"\nCAPTCHA DETECTED! Cooling down for 10 minutes... (Attempt {attempt + 1}/{max_retries})")
 			await asyncio.sleep(600)  
-			print("\n[✅] Cool-down finished. Retrying...")
+			print("\nCool-down finished. Retrying...")
 			continue 
 			
 		return True 
 		
-	print("[!] Failed to bypass CAPTCHA. Moving on.")
+	print("Failed to bypass CAPTCHA. Moving on.")
 	return False
 
 
@@ -53,7 +52,7 @@ async def collect_place_links(page, query):
 	
 	search_url = f"https://www.google.com/maps/search/{urllib.parse.quote_plus(query)}"
 
-	print(f"[MAPS] Searching: {query}")
+	print(f"MAPS Searching: {query}")
 
 	loaded_safely = await safe_maps_load(page, search_url)
 	if not loaded_safely:
@@ -71,7 +70,7 @@ async def collect_place_links(page, query):
 			""")
 			await page.wait_for_timeout(random.randint(800, 1400))
 	except PlaywrightTimeoutError:
-		print("    [!] No scrollable feed found. Capturing visible pins.")
+		print("    No scrollable feed found. Capturing visible pins.")
 
 	anchors = await page.locator('a[href*="/maps/place"]').all()
 
@@ -119,7 +118,7 @@ async def parse_business(context, url):
 				# Run sync requests scraper in a background thread
 				email, phone, whatsapp = await asyncio.to_thread(extract_contacts, name, website)
 			except Exception as e:
-				print(f"    [!] Contact extraction failed for {name}: {e}")
+				print(f"    Contact extraction failed for {name}: {e}")
 
 		print(f"[FOUND] {name}")
 
@@ -146,7 +145,7 @@ async def run(query, limit):
 	
 	# Load historical cache
 	seen = load_seen_urls()
-	print(f"[MAPS] Loaded {len(seen)} previously scraped businesses from master cache.")
+	print(f"MAPS Loaded {len(seen)} previously scraped businesses from master cache.")
 
 	async with async_playwright() as p:
 		browser = await p.chromium.launch(
@@ -162,7 +161,7 @@ async def run(query, limit):
 		}
 
 		if os.path.exists(STATE_FILE):
-			print(f"[!] Loading saved browser session from {STATE_FILE}...")
+			print(f"Loading saved browser session from {STATE_FILE}...")
 			context_args["storage_state"] = STATE_FILE
 
 		context = await browser.new_context(**context_args)
@@ -170,7 +169,7 @@ async def run(query, limit):
 
 		links = await collect_place_links(search_page, query)
 
-		print(f"[MAPS] Collected {len(links)} raw business URLs")
+		print(f"MAPS Collected {len(links)} raw business URLs")
 
 		# Step 2: Visit business pages
 		for link in links:
@@ -193,7 +192,7 @@ async def run(query, limit):
 			# Human-like delay
 			await asyncio.sleep(random.uniform(2.0, 3.5))
 
-		print(f"[!] Saving browser session to {STATE_FILE}...")
+		print(f"Saving browser session to {STATE_FILE}...")
 		await context.storage_state(path=STATE_FILE)
 		
 		await browser.close()
@@ -207,7 +206,7 @@ async def run(query, limit):
 	os.makedirs("output", exist_ok=True)
 	df.to_excel("output/maps_leads.xlsx", index=False)
 
-	print(f"[MAPS] Scraping finished. Saved {len(results)} new leads.")
+	print(f"MAPS Scraping finished. Saved {len(results)} new leads.")
 
 
 def scrape_maps(query, limit, location=""):
