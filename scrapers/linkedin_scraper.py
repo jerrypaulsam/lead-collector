@@ -2,6 +2,7 @@ import asyncio
 import pandas as pd
 import urllib.parse
 import os
+import time
 import re
 from bs4 import BeautifulSoup
 
@@ -77,19 +78,37 @@ async def extract_contacts(context, website_url):
 
     return phone, email, whatsapp
 
+
 async def safe_google_search(page, url):
-    """Async version: Navigates to Google and explicitly waits/checks for CAPTCHAs."""
+    """Navigates to Google safely, handling CAPTCHAs automatically."""
     await page.goto(url, timeout=30000)
     
     try:
         await page.wait_for_selector("h3", timeout=5000)
     except PlaywrightTimeoutError:
         if "sorry" in page.url.lower() or "captcha" in page.url.lower():
-            print("\n[🚨] GOOGLE CAPTCHA DETECTED! Please solve it in the browser window...")
-            await page.wait_for_selector("h3", timeout=300000) 
-            print("[✅] CAPTCHA solved! Resuming scrape...")
+            print("\nGOOGLE CAPTCHA DETECTED ON INSTAGRAM SEARCH!")
+            print("Cooling down for 10 minutes to reset Google's flags...")
+            await asyncio.sleep(600)  
+            print("\n Cool-down finished. Retrying...")
+            await page.goto(url, timeout=30000)
+            await page.wait_for_selector("h3", timeout=15000)
         else:
             raise PlaywrightTimeoutError("Timeout waiting for h3, and no CAPTCHA detected.")
+        
+# async def safe_google_search(page, url):
+#     """Async version: Navigates to Google and explicitly waits/checks for CAPTCHAs."""
+#     await page.goto(url, timeout=30000)
+    
+#     try:
+#         await page.wait_for_selector("h3", timeout=5000)
+#     except PlaywrightTimeoutError:
+#         if "sorry" in page.url.lower() or "captcha" in page.url.lower():
+#             print("\nGOOGLE CAPTCHA DETECTED! Please solve it in the browser window...")
+#             await page.wait_for_selector("h3", timeout=300000) 
+#             print("CAPTCHA solved! Resuming scrape...")
+#         else:
+#             raise PlaywrightTimeoutError("Timeout waiting for h3, and no CAPTCHA detected.")
 
 async def find_official_website(website_page, company_name):
     query = f"{company_name} official website -linkedin -indiamart -justdial"
@@ -122,7 +141,7 @@ async def run(query, limit, start_page=0):
     
     # Load historical cache
     seen = load_seen_urls()
-    print(f"[LinkedIn] Loaded {len(seen)} previously scraped profiles from master cache.")
+    print(f"LinkedIn Loaded {len(seen)} previously scraped profiles from master cache.")
     
     queries = build_queries(query)
 
@@ -159,7 +178,7 @@ async def run(query, limit, start_page=0):
                     + "&nfpr=1" # Anti-autocorrect added
                 )
 
-                print(f"\n[LinkedIn] Opening: {url}")
+                print(f"\nLinkedIn Opening: {url}")
 
                 try:
                     await safe_google_search(search_page, url)
@@ -184,7 +203,7 @@ async def run(query, limit, start_page=0):
                     print(f"LinkedIn results detected on page: {len(extracted_links)}")
 
                     if not extracted_links:
-                        print("[LinkedIn] Reached the end of Google results for this query.")
+                        print("LinkedIn Reached the end of Google results for this query.")
                         break
 
                     for item in extracted_links:

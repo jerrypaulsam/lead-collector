@@ -15,6 +15,15 @@ Lead Finder is a Python-based application designed to scrape and collect leads f
 
 - Python 3.8 or higher
 - Internet connection for web scraping
+- For GUI mode: tkinter (included with Python on Windows and macOS; may need separate installation on Linux)
+
+### Installing tkinter on Linux
+
+- **Ubuntu/Debian:** `sudo apt-get install python3-tk`
+- **Fedora/CentOS:** `sudo dnf install python3-tkinter`
+- **Arch Linux:** `sudo pacman -S tk`
+
+If tkinter is not available, you can still use the command-line interface.
 
 ## Installation
 
@@ -25,15 +34,15 @@ Lead Finder is a Python-based application designed to scrape and collect leads f
    ```
 
 2. **Set up the environment:**
-   - **On Windows:**
-     Run `setup.bat` to create a virtual environment, install dependencies, and set up Playwright browsers.
-   - **On macOS/Linux:**
-     Run `setup.sh` to create a virtual environment, install dependencies, and set up Playwright browsers.
+   - **On Windows:** Run `setup.bat` to create a virtual environment, install dependencies, and set up Playwright browsers.
+   - **On macOS/Linux:** Run `setup.sh` to create a virtual environment, install dependencies, and set up Playwright browsers.
 
    These scripts will:
-   - Create a virtual environment (`venv`)
+   - Check for Python 3.8+ installation
+   - Create a virtual environment (`venv`) if it doesn't exist
    - Install required Python packages from `requirements.txt`
    - Install Playwright browsers for web automation
+   - On Linux, check for tkinter availability and provide installation instructions if missing
 
 ## Usage
 
@@ -64,6 +73,10 @@ Lead Finder is a Python-based application designed to scrape and collect leads f
    python app.py --query "your search query" --limit 100 --source all
    ```
 
+   Or use the run script:
+   - **Windows:** `run.bat --query "your search query" --limit 100 --source all`
+   - **macOS/Linux:** `./run.sh --query "your search query" --limit 100 --source all`
+
    - `--query`: The search query (required)
    - `--limit`: Maximum number of leads to collect (default: 100)
    - `--source`: Source to scrape from (maps, maps_grid, instagram, linkedin, supplier_search, or all; default: all)
@@ -93,6 +106,8 @@ Results are saved in the `output/` directory as Excel files. The application mer
 - If you encounter issues with Playwright, try running `playwright install` manually after activating the virtual environment.
 - Ensure all dependencies are installed correctly by checking `pip list`.
 - For GUI issues on some systems, try running with `python -m gui_app.py`.
+- If tkinter is not available on Linux, install it using the commands provided during setup or in the Prerequisites section.
+- The setup scripts will check for Python version and tkinter availability and provide helpful error messages.
 
 ## License
 

@@ -1,13 +1,10 @@
-import requests
 import pandas as pd
 import time
 import urllib.parse
 import os
 
-from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
-# Import your existing bio parser!
 from utils.instagram_bio_parser import parse_instagram_bio
 
 HEADERS = {
@@ -42,10 +39,10 @@ def safe_google_search(page, url):
         page.wait_for_selector("h3", timeout=5000)
     except PlaywrightTimeoutError:
         if "sorry" in page.url.lower() or "captcha" in page.url.lower():
-            print("\n[🚨] GOOGLE CAPTCHA DETECTED ON INSTAGRAM SEARCH!")
-            print("[⏳] Cooling down for 10 minutes to reset Google's flags...")
+            print("\nGOOGLE CAPTCHA DETECTED ON INSTAGRAM SEARCH!")
+            print("Cooling down for 10 minutes to reset Google's flags...")
             time.sleep(600)  
-            print("\n[✅] Cool-down finished. Retrying...")
+            print("\n Cool-down finished. Retrying...")
             page.goto(url, timeout=30000)
             page.wait_for_selector("h3", timeout=15000)
         else:
@@ -54,44 +51,12 @@ def safe_google_search(page, url):
 
 def parse_instagram_profile(url, snippet_text=""):
     """
-    Fetches the public meta-description from Instagram and passes it to your bio parser.
+    DEPRECATED: Now using Playwright inline for better bio extraction.
+    Kept for compatibility.
     """
-    phone, email, whatsapp, bio = "", "", "", ""
-    
-    parsed_url = urllib.parse.urlparse(url)
-    username = parsed_url.path.strip("/").split("/")[0]
-
-    try:
-        r = requests.get(url, headers=HEADERS, timeout=10)
-        
-        content = ""
-        if r.status_code == 200:
-            soup = BeautifulSoup(r.text, "lxml")
-            meta_desc = soup.find("meta", attrs={"name": "description"}) or soup.find("meta", property="og:description")
-            if meta_desc:
-                content = meta_desc.get("content", "")
-                
-                if ":" in content:
-                    bio = content.split(":", 1)[-1].strip()
-                    if bio.startswith('"') and bio.endswith('"'):
-                        bio = bio[1:-1]
-                else:
-                    bio = content
-
-        text_to_scan = f"{bio} {snippet_text}"
-
-        # ---------------------------------------------------------
-        # PARSER IN ACTION
-        # ---------------------------------------------------------
-        email, phone, whatsapp = parse_instagram_bio(text_to_scan)
-
-    except Exception as e:
-        pass
-        
-    return phone, email, whatsapp, bio, username
+    return "", "", "", "", ""
 
 
-# Added start_page parameter with default 0 so it doesn't break your existing main.py
 def scrape_instagram(query, limit, start_page=0):
     results = []
     
@@ -99,7 +64,7 @@ def scrape_instagram(query, limit, start_page=0):
     seen = load_seen_urls()
     initial_seen_count = len(seen)
     
-    print(f"[INSTAGRAM] Loaded {initial_seen_count} previously scraped profiles from master cache.")
+    print(f"INSTAGRAM Loaded {initial_seen_count} previously scraped profiles from master cache.")
     
     page = start_page
 
@@ -117,7 +82,7 @@ def scrape_instagram(query, limit, start_page=0):
         }
 
         if os.path.exists(STATE_FILE):
-            print(f"[!] Loading saved browser session from {STATE_FILE}...")
+            print(f"Loading saved browser session from {STATE_FILE}...")
             context_args["storage_state"] = STATE_FILE
         
         context = browser.new_context(**context_args)
@@ -134,7 +99,7 @@ def scrape_instagram(query, limit, start_page=0):
                 + "&nfpr=1"
             )
 
-            print(f"\n[INSTAGRAM] Fetching Google Search Page {page + 1} (Start Offset: {page*10})")
+            print(f"\nINSTAGRAM Fetching Google Search Page {page + 1} (Start Offset: {page*10})")
 
             try:
                 safe_google_search(search_page, url)
@@ -162,10 +127,10 @@ def scrape_instagram(query, limit, start_page=0):
                     }
                 """)
 
-                print(f"[INSTAGRAM] Profiles detected on page: {len(extracted_data)}")
+                print(f"INSTAGRAM Profiles detected on page: {len(extracted_data)}")
 
                 if not extracted_data:
-                    print("[INSTAGRAM] Reached the end of Google results.")
+                    print("INSTAGRAM Reached the end of Google results.")
                     break
 
                 for item in extracted_data:
@@ -185,10 +150,43 @@ def scrape_instagram(query, limit, start_page=0):
                     seen.add(ig_url)
                     save_seen_url(ig_url) # Save permanently to the master text file!
 
-                    phone, email, whatsapp, bio, username = parse_instagram_profile(ig_url, snippet_text)
+                    # Parse profile using Playwright for better bio extraction
+                    phone, email, whatsapp, bio, username = "", "", "", "", ""
+                    parsed_url = urllib.parse.urlparse(ig_url)
+                    username = parsed_url.path.strip("/").split("/")[0]
 
-                    # Skip generic system accounts
-                    if not username or username in ["about", "developer", "help"]:
+                    if username and username not in ["about", "developer", "help"]:
+                        try:
+                            with context.new_page() as profile_page:
+                                profile_page.goto(ig_url, timeout=30000)
+                                profile_page.wait_for_load_state('networkidle')
+
+                                # Try to get bio from meta description
+                                meta_desc = profile_page.query_selector('meta[name="description"]')
+                                if meta_desc:
+                                    content = meta_desc.get_attribute('content')
+                                    if content and ":" in content:
+                                        bio = content.split(":", 1)[-1].strip()
+                                        if bio.startswith('"') and bio.endswith('"'):
+                                            bio = bio[1:-1]
+
+                                # If not found, try to find the actual bio element on the page
+                                if not bio:
+                                    # Instagram bio is typically in a span or div with specific structure
+                                    bio_element = profile_page.query_selector('div[data-testid="user-biography"] span') or \
+                                                 profile_page.query_selector('span[data-testid="user-biography"]') or \
+                                                 profile_page.query_selector('.-vDIg span')  # Fallback class
+                                    if bio_element:
+                                        bio = bio_element.inner_text()
+
+                                text_to_scan = f"{bio} {snippet_text}"
+                                email, phone, whatsapp = parse_instagram_bio(text_to_scan)
+
+                        except Exception as e:
+                            print(f"Error parsing profile {ig_url}: {e}")
+
+                    # Skip if no username
+                    if not username:
                         continue
 
                     results.append({
@@ -203,19 +201,19 @@ def scrape_instagram(query, limit, start_page=0):
                         "Bio": bio
                     })
 
-                    print(f"[FOUND] @{username} | Phone: {phone} | Email: {email}")
+                    print(f"FOUND @{username} | Phone: {phone} | Email: {email}")
                     time.sleep(1) 
 
             except PlaywrightTimeoutError:
-                print("[INSTAGRAM] Skipping page due to timeout/no results.")
+                print("INSTAGRAM Skipping page due to timeout/no results.")
                 break
             except Exception as e:
-                print("[INSTAGRAM] error:", e)
+                print("INSTAGRAM error:", e)
                 break
 
             page += 1
 
-        print(f"\n[!] Saving browser session to {STATE_FILE}...")
+        print(f"\nSaving browser session to {STATE_FILE}...")
         context.storage_state(path=STATE_FILE)
         browser.close()
 
@@ -227,4 +225,4 @@ def scrape_instagram(query, limit, start_page=0):
 
     os.makedirs("output", exist_ok=True)
     df.to_excel("output/instagram_leads.xlsx", index=False)
-    print(f"\n[INSTAGRAM] Scraping finished. Saved {len(results)} new leads.")
+    print(f"\nINSTAGRAM Scraping finished. Saved {len(results)} new leads.")
