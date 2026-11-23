@@ -29,7 +29,7 @@ def merge_outputs():
     master_size = 0
     if os.path.exists(master_file):
         try:
-            master_df = pd.read_excel(master_file)
+            master_df = pd.read_excel(master_file, dtype=str)
             if not master_df.empty:
                 frames.append(master_df)
                 master_size = len(master_df)
@@ -42,7 +42,7 @@ def merge_outputs():
     for f in files:
         if os.path.exists(f):
             try:
-                df = pd.read_excel(f)
+                df = pd.read_excel(f, dtype=str)
                 if not df.empty:
                     frames.append(df)
                     daily_count += len(df)
@@ -58,10 +58,17 @@ def merge_outputs():
 
     # 3. CLEAN UP COLUMNS FOR CROSS-PLATFORM MATCHING
     # Ensure columns exist and fill NaNs to prevent pandas crashing
+    # Everything is read as text (dtype=str) so phone numbers aren't turned into
+    # floats like "9876543210.0". Empty cells become "" so they don't count as data.
     for col in ["Company", "Phone", "Email"]:
         if col not in merged.columns:
             merged[col] = ""
-        merged[col] = merged[col].fillna("").astype(str)
+    merged = merged.fillna("").astype(str)
+
+    # Repair numbers already corrupted by older versions of this merger
+    for col in ["Phone", "WhatsApp"]:
+        if col in merged.columns:
+            merged[col] = merged[col].str.replace(r"^(\+?\d+)\.0$", r"\1", regex=True)
 
     # Create temporary normalized columns for strict comparison
     merged["_Norm_Company"] = merged["Company"].apply(clean_company_name)

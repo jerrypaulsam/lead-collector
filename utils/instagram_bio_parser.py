@@ -24,9 +24,8 @@ def extract_phone(text):
 
 
 def extract_whatsapp(text):
-	text = text.lower()
-
-	if "whatsapp" in text or "wa" in text:
+	# Match "whatsapp", "wa.me" or a standalone "wa"/"WA" -- not "wa" inside words like "software"
+	if re.search(r"whatsapp|wa\.me|\bwa\b", text, re.IGNORECASE):
 		phone = extract_phone(text)
 		if phone:
 			return phone

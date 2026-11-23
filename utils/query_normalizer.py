@@ -1,10 +1,10 @@
 import re
 
-COMMON_LOCATIONS = {
-    "tirupur", "surat", "delhi", "new delhi", "mumbai", "bangalore",
-    "bengaluru", "jaipur", "ludhiana", "noida", "kolkata", "chennai",
-    "coimbatore", "erode", "karur", "hyderabad", "pune", "india"
-}
+from utils.geo_utils import KNOWN_LOCATIONS
+
+# Shares the city list with geo_utils so every recognised city can be grid-searched.
+# "india" is recognised as a location but has no grid (falls back to a plain search).
+COMMON_LOCATIONS = KNOWN_LOCATIONS | {"india"}
 
 def clean_text(text: str) -> str:
     text = text.lower().strip()

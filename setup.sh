@@ -4,7 +4,7 @@ echo "Setting up environment..."
 
 # Check if Python3 is installed
 if ! command -v python3 &> /dev/null; then
-    echo "Error: python3 is not installed or not in PATH. Please install Python 3.8 or higher."
+    echo "Error: python3 is not installed or not in PATH. Please install Python 3.11 or higher."
     exit 1
 fi
 
@@ -13,8 +13,8 @@ PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
 PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
 PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
 
-if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 8 ]); then
-    echo "Error: Python version must be 3.8 or higher. Current: $PYTHON_VERSION"
+if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 11 ]); then
+    echo "Error: Python version must be 3.11 or higher. Current: $PYTHON_VERSION"
     exit 1
 fi
 
@@ -55,8 +55,8 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "Installing Playwright browsers..."
-playwright install
+echo "Installing Playwright browser (Chromium)..."
+playwright install chromium
 if [ $? -ne 0 ]; then
     echo "Error: Failed to install Playwright browsers."
     exit 1

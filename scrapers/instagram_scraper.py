@@ -5,6 +5,8 @@ import os
 
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
+from utils.session_store import state_path, secure_state_file
+
 from utils.instagram_bio_parser import parse_instagram_bio
 
 HEADERS = {
@@ -12,7 +14,7 @@ HEADERS = {
     "Accept-Language": "en-US,en;q=0.9"
 }
 
-STATE_FILE = "instagram_state.json"
+STATE_FILE = state_path("instagram")
 MASTER_SEEN_FILE = "output/master_seen_urls.txt"
 
 # Ensure output directory exists for our master file
@@ -215,6 +217,7 @@ def scrape_instagram(query, limit, start_page=0):
 
         print(f"\nSaving browser session to {STATE_FILE}...")
         context.storage_state(path=STATE_FILE)
+        secure_state_file(STATE_FILE)
         browser.close()
 
     df = pd.DataFrame(results)

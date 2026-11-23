@@ -6,6 +6,8 @@ import os
 
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 
+from utils.session_store import state_path, secure_state_file
+
 from utils.geo_utils import generate_grid
 from utils.contact_extractor import extract_contacts
 from utils.classifier import classify_business
@@ -15,7 +17,7 @@ GRID_WORKERS = 1
 PER_CELL_LIMIT = 8         # How many NEW leads to grab per grid coordinate
 SCROLL_LOOPS = 6           # How many times to scroll the Maps sidebar
 
-STATE_FILE = "maps_grid_state.json"  
+STATE_FILE = state_path("maps_grid")
 MASTER_SEEN_FILE = "output/master_seen_urls.txt"
 
 os.makedirs("output", exist_ok=True)
@@ -59,9 +61,13 @@ async def safe_maps_load(page, url, max_retries=2):
 async def collect_links(page, query, lat, lon):
 	links = []
 	safe_query = urllib.parse.quote_plus(query)
-	url = f"https://www.google.com/maps/search/{safe_query}/@{lat},{lon},14z"
-
-	print(f"\nGRID Scanning Cell: {lat},{lon}")
+	if lat is None:
+		# No grid for this location: plain (non-geo-pinned) search
+		url = f"https://www.google.com/maps/search/{safe_query}"
+		print(f"\nGRID No coordinates for this location, running a single plain search: {query}")
+	else:
+		url = f"https://www.google.com/maps/search/{safe_query}/@{lat},{lon},14z"
+		print(f"\nGRID Scanning Cell: {lat},{lon}")
 
 	try:
 		loaded_safely = await safe_maps_load(page, url)
@@ -170,14 +176,15 @@ async def scrape_cell(context, query, lat, lon, results, limit, seen):
 			if link in seen:
 				continue
 			
-			# If it's new, add it to our active memory and save it permanently!
+			# Don't retry it again this run, but only save it permanently once it
+			# has actually been scraped -- failures (CAPTCHA, timeout) get retried next run.
 			seen.add(link)
-			save_seen_url(link)
 
 			data = await parse_business(context, link)
 
 			if data:
 				results.append(data)
+				save_seen_url(link)
 				processed_new += 1 # Only tick the cell limit up if we actually found new data
 
 			await asyncio.sleep(random.uniform(2.0, 3.5))
@@ -203,6 +210,10 @@ async def worker(context, queue, query, results, limit, seen):
 async def run(query, limit, city):
 	results = []
 	grid = generate_grid(city)
+	if not grid:
+		# Unknown/missing city: previously this silently produced 0 leads.
+		print(f"GRID No grid coordinates for location '{city}'. Falling back to a single plain Maps search.")
+		grid = [(None, None)]
 	queue = asyncio.Queue()
 	
 	# Load historical cache
@@ -246,6 +257,7 @@ async def run(query, limit, city):
 
 		print(f"Saving browser session to {STATE_FILE}...")
 		await context.storage_state(path=STATE_FILE)
+		secure_state_file(STATE_FILE)
 
 		await browser.close()
 
@@ -262,7 +274,7 @@ async def run(query, limit, city):
 
 
 def scrape_maps_grid(query, limit, city):
-	if city:
+	if city and city.lower() not in query.lower():
 		query = f"{query} {city}"
 
 	asyncio.run(run(query, limit, city))

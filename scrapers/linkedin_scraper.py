@@ -8,7 +8,9 @@ from bs4 import BeautifulSoup
 
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 
-STATE_FILE = "linkedin_state.json"
+from utils.session_store import state_path, secure_state_file
+
+STATE_FILE = state_path("linkedin")
 MASTER_SEEN_FILE = "output/master_seen_urls.txt"
 
 PHONE_REGEX = r"(?:\+91[\-\s]?)?(?:0?[6-9]\d{9}|0?\(?\d{2,4}\)?[\-\s]?\d{6,8})"
@@ -87,7 +89,7 @@ async def safe_google_search(page, url):
         await page.wait_for_selector("h3", timeout=5000)
     except PlaywrightTimeoutError:
         if "sorry" in page.url.lower() or "captcha" in page.url.lower():
-            print("\nGOOGLE CAPTCHA DETECTED ON INSTAGRAM SEARCH!")
+            print("\nGOOGLE CAPTCHA DETECTED ON LINKEDIN SEARCH!")
             print("Cooling down for 10 minutes to reset Google's flags...")
             await asyncio.sleep(600)  
             print("\n Cool-down finished. Retrying...")
@@ -262,6 +264,7 @@ async def run(query, limit, start_page=0):
 
         print(f"\nSaving browser session to {STATE_FILE}...")
         await context.storage_state(path=STATE_FILE)
+        secure_state_file(STATE_FILE)
         
         await browser.close()
 

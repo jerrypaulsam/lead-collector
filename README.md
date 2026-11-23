@@ -13,7 +13,7 @@ Lead Finder is a Python-based application designed to scrape and collect leads f
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.11 or higher (required by the pinned pandas/numpy versions)
 - Internet connection for web scraping
 - For GUI mode: tkinter (included with Python on Windows and macOS; may need separate installation on Linux)
 
@@ -38,10 +38,10 @@ If tkinter is not available, you can still use the command-line interface.
    - **On macOS/Linux:** Run `setup.sh` to create a virtual environment, install dependencies, and set up Playwright browsers.
 
    These scripts will:
-   - Check for Python 3.8+ installation
+   - Check for Python 3.11+ installation
    - Create a virtual environment (`venv`) if it doesn't exist
    - Install required Python packages from `requirements.txt`
-   - Install Playwright browsers for web automation
+   - Install the Playwright Chromium browser for web automation
    - On Linux, check for tkinter availability and provide installation instructions if missing
 
 ## Usage
@@ -80,10 +80,17 @@ If tkinter is not available, you can still use the command-line interface.
    - `--query`: The search query (required)
    - `--limit`: Maximum number of leads to collect (default: 100)
    - `--source`: Source to scrape from (maps, maps_grid, instagram, linkedin, supplier_search, or all; default: all)
+   - `--start_page`: Number of Google result pages to skip (Instagram, LinkedIn and supplier search only; default: 0)
+
+   **Locations:** put the city in your query (e.g. `"clothing manufacturer in Bengaluru"`). `maps_grid` splits supported cities (see `utils/geo_utils.py`, including aliases like Bengaluru, New Delhi, Cochin) into a 7x7 grid of searches. For other locations it falls back to a single normal Maps search.
 
 ### Output
 
-Results are saved in the `output/` directory as Excel files. The application merges outputs from different sources when applicable.
+Results are saved in the `output/` directory as Excel files. Each run's results are merged into `output/master_leads.xlsx` (deduplicated by company name, phone and email). URLs that were successfully scraped are recorded in `output/master_seen_urls.txt` and skipped on later runs; delete that file to start fresh.
+
+### Saved sessions
+
+Each scraper saves its browser session (cookies) to `sessions/<scraper>_state.json` so later runs reuse it. These files contain live login/cookie data: they are git-ignored, readable only by your user account, and should never be shared or committed. Delete the `sessions/` folder to start with a clean browser session.
 
 ## Project Structure
 
@@ -103,9 +110,9 @@ Results are saved in the `output/` directory as Excel files. The application mer
 
 ## Troubleshooting
 
-- If you encounter issues with Playwright, try running `playwright install` manually after activating the virtual environment.
+- If you encounter issues with Playwright, try running `playwright install chromium` manually after activating the virtual environment.
 - Ensure all dependencies are installed correctly by checking `pip list`.
-- For GUI issues on some systems, try running with `python -m gui_app.py`.
+- Run the GUI from the project folder (`python gui_app.py`), since it starts `app.py` from the current directory.
 - If tkinter is not available on Linux, install it using the commands provided during setup or in the Prerequisites section.
 - The setup scripts will check for Python version and tkinter availability and provide helpful error messages.
 

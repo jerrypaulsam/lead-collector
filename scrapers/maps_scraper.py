@@ -6,12 +6,14 @@ import os
 
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 
+from utils.session_store import state_path, secure_state_file
+
 from utils.classifier import classify_business
 from utils.contact_extractor import extract_contacts
 
 SCROLL_LIMIT = 8
 
-STATE_FILE = "maps_state.json"
+STATE_FILE = state_path("maps")
 MASTER_SEEN_FILE = "output/master_seen_urls.txt"
 
 os.makedirs("output", exist_ok=True)
@@ -180,20 +182,22 @@ async def run(query, limit):
 			if link in seen:
 				continue
 			
-			# If it's new, add it to our active memory and save it permanently!
+			# Don't retry it again this run, but only save it permanently once it
+			# has actually been scraped -- failures (CAPTCHA, timeout) get retried next run.
 			seen.add(link)
-			save_seen_url(link)
 
 			data = await parse_business(context, link)
 
 			if data:
 				results.append(data)
+				save_seen_url(link)
 
 			# Human-like delay
 			await asyncio.sleep(random.uniform(2.0, 3.5))
 
 		print(f"Saving browser session to {STATE_FILE}...")
 		await context.storage_state(path=STATE_FILE)
+		secure_state_file(STATE_FILE)
 		
 		await browser.close()
 
@@ -210,7 +214,7 @@ async def run(query, limit):
 
 
 def scrape_maps(query, limit, location=""):
-	if location:
+	if location and location.lower() not in query.lower():
 		query = f"{query} {location}"
 
 	asyncio.run(run(query, limit))

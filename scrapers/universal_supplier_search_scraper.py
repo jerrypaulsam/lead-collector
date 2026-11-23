@@ -8,11 +8,13 @@ import os
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
+from utils.session_store import state_path, secure_state_file
+
 HEADERS = {
 	"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 }
 
-STATE_FILE = "supplier_state.json"
+STATE_FILE = state_path("supplier")
 MASTER_SEEN_FILE = "output/master_seen_urls.txt"
 
 PHONE_REGEX = r"(?:\+91[\-\s]?)?(?:0?[6-9]\d{9}|0?\(?\d{2,4}\)?[\-\s]?\d{6,8})"
@@ -89,7 +91,7 @@ def safe_google_search(page, url):
         page.wait_for_selector("h3", timeout=5000)
     except PlaywrightTimeoutError:
         if "sorry" in page.url.lower() or "captcha" in page.url.lower():
-            print("\nGOOGLE CAPTCHA DETECTED ON INSTAGRAM SEARCH!")
+            print("\nGOOGLE CAPTCHA DETECTED ON SUPPLIER SEARCH!")
             print("Cooling down for 10 minutes to reset Google's flags...")
             time.sleep(600)  
             print("\n Cool-down finished. Retrying...")
@@ -257,6 +259,7 @@ def scrape_supplier_search(query, limit, start_page=0):
 
 		print(f"\nSaving browser session to {STATE_FILE}...")
 		context.storage_state(path=STATE_FILE)
+		secure_state_file(STATE_FILE)
 		browser.close()
 
 	df = pd.DataFrame(results)

@@ -38,12 +38,44 @@ CITY_COORDS = {
     "patna": (25.5941, 85.1376),
     "guwahati": (26.1445, 91.7362),
     "ranchi": (23.3441, 85.3094),
-    "raipur": (21.2514, 81.6296)
+    "raipur": (21.2514, 81.6296),
+    "erode": (11.3410, 77.7172),
+    "karur": (10.9601, 78.0766),
 }
+
+# Alternate / older spellings that should resolve to a key in CITY_COORDS
+CITY_ALIASES = {
+    "bengaluru": "bangalore",
+    "new delhi": "delhi",
+    "bombay": "mumbai",
+    "madras": "chennai",
+    "calcutta": "kolkata",
+    "gurugram": "gurgaon",
+    "cochin": "kochi",
+    "ernakulam": "kochi",
+    "mysuru": "mysore",
+    "trivandrum": "thiruvananthapuram",
+    "vizag": "visakhapatnam",
+    "tiruppur": "tirupur",
+    "baroda": "vadodara",
+}
+
+# Every location name the query parser should recognise
+KNOWN_LOCATIONS = set(CITY_COORDS) | set(CITY_ALIASES)
+
+
+def resolve_city(city):
+    """Maps a location name (or alias) to its CITY_COORDS key, or '' if unknown."""
+    if not city:
+        return ""
+    city = city.lower().strip()
+    city = CITY_ALIASES.get(city, city)
+    return city if city in CITY_COORDS else ""
 
 
 def generate_grid(city, grid_size=3, step_km=2):
-    if city not in CITY_COORDS:
+    city = resolve_city(city)
+    if not city:
         return []
 
     lat_deg, lon_deg = CITY_COORDS[city]
